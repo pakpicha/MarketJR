@@ -198,6 +198,13 @@ table.grid thead th.rainon { background: #D9E4EC; }
 .sheet-bottom { position: sticky; bottom: 0; background: linear-gradient(180deg, rgba(255,255,255,0), #fff 22%); padding-top: 14px; margin-top: 4px; }
 .rollcount { font-size: 13.5px; color: var(--ink-soft); margin: 6px 0 10px; }
 .rollcount b { font-family: 'Kanit', sans-serif; color: var(--paid); font-size: 15px; }
+.rollcount b.b-owe { color: var(--owe); }
+.seg { display: inline-flex; border: 1px solid #D5DBD3; border-radius: 10px; overflow: hidden; flex: 0 0 auto; }
+.segbtn { border: 0; background: #fff; padding: 10px 18px; font-family: 'Sarabun', sans-serif; font-size: 14px; font-weight: 700; color: var(--ink-faint); cursor: pointer; min-width: 60px; transition: background .12s, color .12s; }
+.segbtn + .segbtn { border-left: 1px solid #D5DBD3; }
+.segbtn:active { filter: brightness(.96); }
+.segbtn.segp.on { background: var(--paid); color: #fff; }
+.segbtn.sego.on { background: var(--owe); color: #fff; }
 
 .hide { display: none !important; }
 .empty { text-align: center; color: var(--ink-faint); padding: 26px 10px; font-size: 14px; line-height: 1.6; }
@@ -333,10 +340,8 @@ table.grid thead th.rainon { background: #D9E4EC; }
   }
   function nextStatus(s) {
     if (s === 'paid') return 'owe';
-    if (s === 'owe') return 'rain';
-    if (s === 'rain') return '';
-    if (s === 'settled') return 'paid';
-    return 'paid';
+    if (s === 'owe') return '';
+    return 'paid'; // '', rain, settled -> paid
   }
   function statusThai(s) {
     if (s === 'paid') return 'จ่ายแล้ว';
@@ -518,7 +523,7 @@ table.grid thead th.rainon { background: #D9E4EC; }
       + '<span><i class="sw st-rain"></i>ฝน (ยกให้)</span>'
       + '<span><i class="sw st-settled"></i>จ่ายค้าง</span>'
       + '</div>';
-    h += '<div class="hint">📋 แตะหัวคอลัมน์ (วันที่) = เช็คชื่อทั้งนัดทีเดียว · หรือแตะช่องเพื่อสลับทีละคน: มา → ค้าง → ฝน → ว่าง</div>';
+    h += '<div class="hint">📋 แตะหัวคอลัมน์ (วันที่) = เช็คชื่อทั้งนัดทีเดียว (แนะนำ) · หรือแตะช่องในตาราง: ว่าง → มา → ค้าง → ว่าง · ฝนตั้งได้ในหน้าเช็คชื่อ/ตั้งค่านัด</div>';
     h += '</div>';
 
     // session editor
@@ -824,35 +829,40 @@ table.grid thead th.rainon { background: #D9E4EC; }
     return null;
   }
   function rollRowsHtml(mo, sessId) {
-    var gc = gridCustomers(mo), h = '', came = 0;
+    var gc = gridCustomers(mo), h = '', came = 0, owe = 0;
     for (var i = 0; i < gc.length; i++) {
       var c = gc[i], st = getCell(mo, c.id, sessId);
-      var checked = (st === 'paid') ? 'checked' : '';
       if (st === 'paid') came++;
-      var tag = '';
-      if (st === 'owe') tag = '<span class="pill" style="background:#fbe4e4;color:#b23b3b">ค้าง</span>';
-      else if (st === 'rain') tag = '<span class="pill" style="background:#e7edf3;color:#5a6572">ฝน</span>';
-      else if (st === 'settled') tag = '<span class="pill" style="background:#dbeef4;color:#2f8fb0">จ่ายค้าง</span>';
-      else if (st === 'paid') tag = '<span class="pill" style="background:#e4f0e9;color:#1f7a4d">มา</span>';
-      h += '<label class="roll-row"><input type="checkbox" ' + checked + ' onchange="APP.rollTick(\'' + sessId + '\',\'' + c.id + '\',this.checked)"><span class="rn-name">' + esc(c.name) + '</span>' + tag + '</label>';
+      else if (st === 'owe') owe++;
+      var pOn = (st === 'paid') ? ' on' : '';
+      var oOn = (st === 'owe') ? ' on' : '';
+      var extra = '';
+      if (st === 'settled') extra = '<span class="pill" style="background:#dbeef4;color:#2f8fb0">จ่ายค้าง</span>';
+      else if (st === 'rain') extra = '<span class="pill">ฝน</span>';
+      h += '<div class="roll-row">'
+        + '<span class="rn-name">' + esc(c.name) + '</span>' + extra
+        + '<div class="seg">'
+        + '<button class="segbtn segp' + pOn + '" onclick="APP.rollSet(\'' + sessId + '\',\'' + c.id + '\',\'paid\')">มา</button>'
+        + '<button class="segbtn sego' + oOn + '" onclick="APP.rollSet(\'' + sessId + '\',\'' + c.id + '\',\'owe\')">ค้าง</button>'
+        + '</div></div>';
     }
-    return { html: h, came: came, total: gc.length };
+    return { html: h, came: came, owe: owe, total: gc.length };
   }
   function renderRoll(sessId) {
     var mo = ensureMonth(currentMonth), s = sessById(mo, sessId);
     if (!s) return;
     var h = '<div class="sheet">';
     h += '<div class="sheet-top"><b>เช็คชื่อ · ' + thaiDay(s.date) + '</b><button class="xbtn" onclick="APP.closeRoll()">✕</button></div>';
-    h += '<label class="rn" style="display:flex;gap:7px;align-items:center;margin:4px 0 8px"><input type="checkbox" ' + (s.rain ? 'checked' : '') + ' onchange="APP.rollRain(\'' + sessId + '\',this.checked)"> 🌧️ ฝนตก — ยกทั้งนัดให้ทุกคน</label>';
+    h += '<label class="rn" style="display:flex;gap:7px;align-items:center;margin:4px 0 10px;color:var(--ink-soft);font-size:13px"><input type="checkbox" ' + (s.rain ? 'checked' : '') + ' onchange="APP.rollRain(\'' + sessId + '\',this.checked)"> 🌧️ ฝนตก — ยกทั้งนัดให้ทุกคน</label>';
     if (s.rain) {
       h += '<div class="empty">นัดนี้เป็น “ฝน” ยกให้ทุกคนแล้ว 🌧️</div>';
     } else {
       var r = rollRowsHtml(mo, sessId);
-      h += '<div class="rollcount">ติ๊ก = มา · มาแล้ว <b>' + r.came + '</b> / ' + r.total + ' คน</div>';
-      h += '<div class="btnrow" style="margin:0 0 4px"><button class="btn ok sm" onclick="APP.rollAll(\'' + sessId + '\',\'paid\')">✓ มาทั้งหมด</button><button class="btn sec sm" onclick="APP.rollAll(\'' + sessId + '\',\'\')">ล้าง</button></div>';
+      h += '<div class="rollcount">มา <b>' + r.came + '</b> · ค้าง <b class="b-owe">' + r.owe + '</b> · จากทั้งหมด ' + r.total + ' คน</div>';
+      h += '<div class="btnrow" style="margin:0 0 6px"><button class="btn ok sm" onclick="APP.rollAll(\'' + sessId + '\',\'paid\')">✓ มาทั้งหมด</button><button class="btn warn sm" onclick="APP.rollAll(\'' + sessId + '\',\'owe\')">ค้างทั้งหมด</button><button class="btn sec sm" onclick="APP.rollAll(\'' + sessId + '\',\'\')">ล้าง</button></div>';
       h += '<div id="rollList">' + r.html + '</div>';
-      h += '<div class="sheet-bottom"><button class="btn warn full" onclick="APP.rollOwe(\'' + sessId + '\')">ลงค้าง — คนที่ยังไม่ติ๊กทั้งหมด</button>';
-      h += '<div class="hint" style="text-align:center;margin-top:6px">ติ๊กคนที่มา แล้วกดปุ่มนี้ให้คนที่เหลือเป็น “ค้าง” ทีเดียว</div></div>';
+      h += '<div class="sheet-bottom"><button class="btn full" onclick="APP.closeRoll()">เสร็จ</button>';
+      h += '<div class="hint" style="text-align:center;margin-top:6px">แตะ “มา” หรือ “ค้าง” ต่อคน · แตะซ้ำที่เดิมเพื่อล้าง · หรือใช้ปุ่มด้านบนตั้งทีเดียว</div></div>';
     }
     h += '</div>';
     var m = document.getElementById('rollModal');
@@ -895,25 +905,20 @@ table.grid thead th.rainon { background: #D9E4EC; }
     rollBackdrop: function (ev) {
       if (ev && ev.target && ev.target.id === 'rollModal') { APP.closeRoll(); }
     },
-    rollTick: function (sessId, custId, checked) {
+    rollSet: function (sessId, custId, st) {
       var mo = ensureMonth(currentMonth);
-      setCell(mo, custId, sessId, checked ? 'paid' : '');
+      var cur = getCell(mo, custId, sessId);
+      setCell(mo, custId, sessId, cur === st ? '' : st); // tap same = clear
       saveDB();
       var r = rollRowsHtml(mo, sessId);
       var list = document.getElementById('rollList'); if (list) list.innerHTML = r.html;
-      var cnt = document.querySelector('.rollcount b'); if (cnt) cnt.textContent = r.came;
+      var bs = document.querySelectorAll('.rollcount b');
+      if (bs[0]) bs[0].textContent = r.came;
+      if (bs[1]) bs[1].textContent = r.owe;
     },
     rollAll: function (sessId, st) {
       var mo = ensureMonth(currentMonth), gc = gridCustomers(mo);
       for (var i = 0; i < gc.length; i++) { setCell(mo, gc[i].id, sessId, st); }
-      saveDB(); renderRoll(sessId);
-    },
-    rollOwe: function (sessId) {
-      var mo = ensureMonth(currentMonth), gc = gridCustomers(mo);
-      for (var i = 0; i < gc.length; i++) {
-        var st = getCell(mo, gc[i].id, sessId);
-        if (st === '' || st == null) setCell(mo, gc[i].id, sessId, 'owe');
-      }
       saveDB(); renderRoll(sessId);
     },
     rollRain: function (sessId, on) {
