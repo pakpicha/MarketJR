@@ -21,6 +21,9 @@
   --owe: #C24329;
   --rain: #6B7A86;
   --settled: #2A8FA8;
+  --frame: #C9821E;
+  --sub: #6E63B6;
+  --comp: #2E9E86;
   --gold: #B07A1E;
   --paid-t: #E6F1EA;
   --owe-t: #F9E7E1;
@@ -142,8 +145,14 @@ table.grid thead th.rainon { background: #D9E4EC; }
 .st- { background: #fff; color: #CBD3CC; font-size: 16px; }
 .st-paid { background: var(--paid); }
 .st-owe { background: var(--owe); }
+.st-frame { background: var(--frame); }
+.st-sub { background: var(--sub); }
+.st-comp { background: var(--comp); }
 .st-rain { background: var(--rain); }
 .st-settled { background: var(--settled); }
+.slot { display: inline-block; padding: 0 6px; border-radius: 5px; font-weight: 700; font-size: 11px; }
+.slot.mo { background: #FBEED2; color: #94631A; }
+.slot.ev { background: #DBE4EC; color: #3C566B; }
 .rowsum { font-family: 'Kanit', sans-serif; font-size: 13px; color: var(--ink-soft); padding: 6px; min-width: 72px; background: #FAFBF9; font-weight: 500; }
 .legend { display: flex; gap: 13px; flex-wrap: wrap; font-size: 12.5px; margin-top: 12px; color: var(--ink-soft); }
 .legend span { display: inline-flex; align-items: center; gap: 5px; }
@@ -191,20 +200,25 @@ table.grid thead th.rainon { background: #D9E4EC; }
 .sheet-top { display: flex; align-items: center; justify-content: space-between; margin-bottom: 4px; }
 .sheet-top b { font-family: 'Kanit', sans-serif; font-size: 18px; font-weight: 600; }
 .xbtn { border: 0; background: #EEF2ED; width: 36px; height: 36px; border-radius: 50%; font-size: 16px; color: var(--ink-soft); cursor: pointer; }
-.roll-row { display: flex; align-items: center; gap: 13px; padding: 13px 2px; border-bottom: 1px solid var(--line); cursor: pointer; }
+.roll-row { padding: 11px 2px; border-bottom: 1px solid var(--line); }
 .roll-row:last-of-type { border-bottom: 0; }
+.roll-row .rn-top { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
 .roll-row .rn-name { flex: 1; font-weight: 600; font-size: 15.5px; }
-.roll-row input[type=checkbox] { width: 27px; height: 27px; flex: 0 0 auto; accent-color: var(--paid); }
+.kwrap { display: grid; grid-template-columns: repeat(5, 1fr); gap: 6px; }
+.kbtn { border: 1px solid #D5DBD3; background: #fff; border-radius: 9px; padding: 9px 2px; font-family: 'Sarabun', sans-serif; font-size: 13px; font-weight: 700; color: var(--ink-soft); cursor: pointer; transition: background .12s, color .12s, border-color .12s; }
+.kbtn:active { filter: brightness(.96); }
+.kbtn.k-paid.on { background: var(--paid); border-color: var(--paid); color: #fff; }
+.kbtn.k-sub.on { background: var(--sub); border-color: var(--sub); color: #fff; }
+.kbtn.k-owe.on { background: var(--owe); border-color: var(--owe); color: #fff; }
+.kbtn.k-frame.on { background: var(--frame); border-color: var(--frame); color: #fff; }
+.kbtn.k-comp.on { background: var(--comp); border-color: var(--comp); color: #fff; }
 .sheet-bottom { position: sticky; bottom: 0; background: linear-gradient(180deg, rgba(255,255,255,0), #fff 22%); padding-top: 14px; margin-top: 4px; }
 .rollcount { font-size: 13.5px; color: var(--ink-soft); margin: 6px 0 10px; }
 .rollcount b { font-family: 'Kanit', sans-serif; color: var(--paid); font-size: 15px; }
 .rollcount b.b-owe { color: var(--owe); }
-.seg { display: inline-flex; border: 1px solid #D5DBD3; border-radius: 10px; overflow: hidden; flex: 0 0 auto; }
-.segbtn { border: 0; background: #fff; padding: 10px 18px; font-family: 'Sarabun', sans-serif; font-size: 14px; font-weight: 700; color: var(--ink-faint); cursor: pointer; min-width: 60px; transition: background .12s, color .12s; }
-.segbtn + .segbtn { border-left: 1px solid #D5DBD3; }
-.segbtn:active { filter: brightness(.96); }
-.segbtn.segp.on { background: var(--paid); color: #fff; }
-.segbtn.sego.on { background: var(--owe); color: #fff; }
+.perd { flex: 0 0 auto; width: 74px; padding: 7px 6px; }
+.delx { flex: 0 0 auto; border: 1px solid #E6C9C2; background: #FBEFEB; color: var(--owe); width: 34px; height: 36px; border-radius: 9px; font-size: 14px; cursor: pointer; }
+.delx:active { filter: brightness(.96); }
 
 .hide { display: none !important; }
 .empty { text-align: center; color: var(--ink-faint); padding: 26px 10px; font-size: 14px; line-height: 1.6; }
@@ -310,16 +324,34 @@ table.grid thead th.rainon { background: #D9E4EC; }
   }
 
   /* ---------- domain ---------- */
+  function genSid() { return 's' + Date.now().toString(36) + Math.floor(Math.random() * 10000).toString(36); }
+  function periodRank(p) { if (p === 'เช้า') return 0; if (p === 'เย็น') return 1; return 2; }
+  function sortSessions(mo) {
+    mo.sessions.sort(function (a, b) {
+      var da = a.date || '', db = b.date || '';
+      if (da < db) return -1; if (da > db) return 1;
+      return periodRank(a.period) - periodRank(b.period);
+    });
+  }
   function ensureMonth(key) {
     if (!DB.months[key]) {
       var sessions = [];
-      for (var i = 0; i < 8; i++) {
-        sessions.push({ id: 's' + (i + 1), label: '', date: key + '-' + pad2(DEFAULT_DAYS[i]), rain: false });
+      for (var i = 0; i < DEFAULT_DAYS.length; i++) {
+        var d = key + '-' + pad2(DEFAULT_DAYS[i]);
+        sessions.push({ id: genSid(), label: '', date: d, period: 'เช้า', rain: false });
+        sessions.push({ id: genSid(), label: '', date: d, period: 'เย็น', rain: false });
       }
       DB.months[key] = { sessions: sessions, cells: {} };
     }
     return DB.months[key];
   }
+  function sessName(s) {
+    if (s.label) return s.label;
+    var base = thaiDay(s.date);
+    if (s.period) base += ' ' + s.period;
+    return base;
+  }
+  function isOwe(st) { return st === 'owe' || st === 'frame'; }
   function getCust(id) {
     for (var i = 0; i < DB.customers.length; i++) { if (DB.customers[i].id === id) return DB.customers[i]; }
     return null;
@@ -341,11 +373,14 @@ table.grid thead th.rainon { background: #D9E4EC; }
   function nextStatus(s) {
     if (s === 'paid') return 'owe';
     if (s === 'owe') return '';
-    return 'paid'; // '', rain, settled -> paid
+    return 'paid'; // '', rain, settled, sub, frame, comp -> paid
   }
   function statusThai(s) {
     if (s === 'paid') return 'จ่ายแล้ว';
     if (s === 'owe') return 'ค้าง';
+    if (s === 'frame') return 'ค้าง (โครง)';
+    if (s === 'sub') return 'แทน';
+    if (s === 'comp') return 'ชดเชย';
     if (s === 'rain') return 'ฝน (ยกให้)';
     if (s === 'settled') return 'จ่ายค้างแล้ว';
     return '';
@@ -353,6 +388,9 @@ table.grid thead th.rainon { background: #D9E4EC; }
   function cellText(s) {
     if (s === 'paid') return 'มา';
     if (s === 'owe') return 'ค้าง';
+    if (s === 'frame') return 'โครง';
+    if (s === 'sub') return 'แทน';
+    if (s === 'comp') return 'ชดเชย';
     if (s === 'rain') return 'ฝน';
     if (s === 'settled') return 'จ่าย\nค้าง';
     return '·';
@@ -370,10 +408,13 @@ table.grid thead th.rainon { background: #D9E4EC; }
       var mk = keys[k]; var mo = DB.months[mk];
       var cells = mo.cells[custId]; if (!cells) continue;
       for (var si = 0; si < mo.sessions.length; si++) {
-        var s = mo.sessions[si];
-        if (cells[s.id] === 'owe') {
+        var s = mo.sessions[si]; var st = cells[s.id];
+        if (isOwe(st)) {
           total += rate;
-          items.push({ type: 'cell', month: mk, sessId: s.id, date: s.date, label: s.label, amount: rate });
+          items.push({ type: 'cell', frame: st === 'frame', month: mk, sessId: s.id, date: s.date, period: s.period, label: s.label, amount: rate });
+        } else if (st === 'comp') {
+          total -= rate;
+          items.push({ type: 'comp', month: mk, sessId: s.id, date: s.date, period: s.period, label: s.label, amount: rate });
         }
       }
     }
@@ -386,7 +427,7 @@ table.grid thead th.rainon { background: #D9E4EC; }
       var cells = mo.cells[custId]; if (!cells) continue;
       for (var si = 0; si < mo.sessions.length; si++) {
         var s = mo.sessions[si];
-        if (cells[s.id] === 'owe') arr.push({ month: mk, sessId: s.id });
+        if (isOwe(cells[s.id])) arr.push({ month: mk, sessId: s.id });
       }
     }
     return arr;
@@ -428,7 +469,8 @@ table.grid thead th.rainon { background: #D9E4EC; }
       for (var si = 0; si < mo.sessions.length; si++) {
         var st = cells[mo.sessions[si].id];
         if (st === 'paid' || st === 'settled') collected += rate;
-        else if (st === 'owe') owe += rate;
+        else if (isOwe(st)) owe += rate;
+        else if (st === 'comp') owe -= rate;
         else if (st === 'rain') waived += rate;
       }
     }
@@ -492,9 +534,10 @@ table.grid thead th.rainon { background: #D9E4EC; }
     h += '<th class="name">ลูกค้า</th>';
     for (var si = 0; si < mo.sessions.length; si++) {
       var s = mo.sessions[si];
+      var slot = s.label ? esc(s.label) : (s.period ? '<span class="slot ' + (s.period === 'เย็น' ? 'ev' : 'mo') + '">' + s.period + '</span>' : 'นัด ' + (si + 1));
       h += '<th class="' + (s.rain ? 'rainon' : '') + '" style="cursor:pointer" onclick="APP.openRoll(\'' + s.id + '\')" title="เช็คชื่อทั้งนัด">';
       h += '<span class="sdate">' + thaiDay(s.date) + (s.rain ? ' 🌧️' : '') + '</span>';
-      h += '<span class="slbl">' + (s.label ? esc(s.label) : 'นัด ' + (si + 1)) + ' 📋</span>';
+      h += '<span class="slbl">' + slot + ' 📋</span>';
       h += '</th>';
     }
     h += '<th class="rowsum">ค้าง<br>เดือนนี้</th>';
@@ -508,11 +551,12 @@ table.grid thead th.rainon { background: #D9E4EC; }
       for (var sj = 0; sj < mo.sessions.length; sj++) {
         var sid = mo.sessions[sj].id;
         var st = getCell(mo, c.id, sid);
-        if (st === 'owe') rowOwe += custRate(c.id);
+        if (isOwe(st)) rowOwe += custRate(c.id);
+        else if (st === 'comp') rowOwe -= custRate(c.id);
         h += '<td><button class="cell st-' + st + '" onclick="APP.cycle(\'' + c.id + '\',\'' + sid + '\')">'
           + cellText(st).replace('\n', '<br>') + '</button></td>';
       }
-      h += '<td class="rowsum">' + (rowOwe > 0 ? '฿' + baht(rowOwe) : '-') + '</td>';
+      h += '<td class="rowsum">' + (rowOwe > 0 ? '฿' + baht(rowOwe) : (rowOwe < 0 ? '−฿' + baht(-rowOwe) : '-')) + '</td>';
       h += '</tr>';
     }
     h += '</tbody></table></div>';
@@ -520,10 +564,13 @@ table.grid thead th.rainon { background: #D9E4EC; }
     h += '<div class="legend">'
       + '<span><i class="sw st-paid"></i>มา/จ่าย</span>'
       + '<span><i class="sw st-owe"></i>ค้าง</span>'
+      + '<span><i class="sw st-frame"></i>โครง (ตั้งไม่มา)</span>'
+      + '<span><i class="sw st-sub"></i>แทน (ไม่คิดเงิน)</span>'
+      + '<span><i class="sw st-comp"></i>ชดเชย (ลบหนี้)</span>'
       + '<span><i class="sw st-rain"></i>ฝน (ยกให้)</span>'
       + '<span><i class="sw st-settled"></i>จ่ายค้าง</span>'
       + '</div>';
-    h += '<div class="hint">📋 แตะหัวคอลัมน์ (วันที่) = เช็คชื่อทั้งนัดทีเดียว (แนะนำ) · หรือแตะช่องในตาราง: ว่าง → มา → ค้าง → ว่าง · ฝนตั้งได้ในหน้าเช็คชื่อ/ตั้งค่านัด</div>';
+    h += '<div class="hint">📋 แตะหัวคอลัมน์ = เช็คชื่อทั้งนัด (เลือก มา/แทน/ค้าง/โครง/ชดเชย ได้) · แตะช่องในตารางสลับเร็ว ว่าง → มา → ค้าง → ว่าง</div>';
     h += '</div>';
 
     // session editor
@@ -532,13 +579,21 @@ table.grid thead th.rainon { background: #D9E4EC; }
     for (var se = 0; se < mo.sessions.length; se++) {
       var ss = mo.sessions[se];
       h += '<div class="se">';
-      h += '<span class="no">' + (se + 1) + '</span>';
       h += '<input type="date" value="' + esc(ss.date) + '" onchange="APP.setSessDate(\'' + ss.id + '\', this.value)">';
-      h += '<input type="text" placeholder="ป้ายชื่อ (ไม่บังคับ)" value="' + esc(ss.label) + '" onchange="APP.setSessLabel(\'' + ss.id + '\', this.value)">';
+      h += '<select class="perd" onchange="APP.setSessPeriod(\'' + ss.id + '\', this.value)">'
+        + '<option value="เช้า"' + (ss.period === 'เช้า' ? ' selected' : '') + '>เช้า</option>'
+        + '<option value="เย็น"' + (ss.period === 'เย็น' ? ' selected' : '') + '>เย็น</option>'
+        + '<option value=""' + (!ss.period ? ' selected' : '') + '>—</option>'
+        + '</select>';
       h += '<label class="rn"><input type="checkbox" ' + (ss.rain ? 'checked' : '') + ' onchange="APP.setRain(\'' + ss.id + '\', this.checked)"> ฝน</label>';
+      h += '<button class="delx" onclick="APP.delSess(\'' + ss.id + '\')" title="ลบรอบนี้">✕</button>';
       h += '</div>';
     }
-    h += '<div class="hint">ติ๊ก “ฝน” = ยกทั้งนัดให้ทุกคน (ช่องในคอลัมน์นั้นจะกลายเป็นฝนทั้งหมด)</div>';
+    h += '<div class="btnrow">';
+    h += '<button class="btn sec sm" onclick="APP.addSess()">➕ เพิ่มรอบ</button>';
+    h += '<button class="btn sec sm" onclick="APP.resetSess()">↺ รีเซ็ตเริ่มต้น</button>';
+    h += '</div>';
+    h += '<div class="hint">แต่ละวันมีรอบ “เช้า” และ “เย็น” เก็บเงินแยกกัน · ลบรอบที่ไม่มีด้วย ✕ หรือเพิ่มรอบใหม่ · ติ๊ก “ฝน” = ยกทั้งรอบให้ทุกคน</div>';
     h += '</div>';
 
     document.getElementById('view-grid').innerHTML = h;
@@ -619,7 +674,7 @@ table.grid thead th.rainon { background: #D9E4EC; }
     var n = 0, keys = monthKeysSorted();
     for (var k = 0; k < keys.length; k++) {
       var mo = DB.months[keys[k]]; var cells = mo.cells[custId]; if (!cells) continue;
-      for (var s in cells) { if (cells.hasOwnProperty(s) && cells[s] === 'owe') n++; }
+      for (var s in cells) { if (cells.hasOwnProperty(s) && isOwe(cells[s])) n++; }
     }
     return n;
   }
@@ -653,8 +708,10 @@ table.grid thead th.rainon { background: #D9E4EC; }
             + '<button class="btn ok sm" onclick="APP.settleOpening(\'' + c.id + '\')">รับ</button></div>';
         } else if (it.type === 'credit') {
           h += '<div class="owl" style="color:#1f7a4d"><span>เครดิตล่วงหน้า −฿' + baht(it.amount) + '</span></div>';
+        } else if (it.type === 'comp') {
+          h += '<div class="owl" style="color:#2E9E86"><span>ชดเชย ' + thaiMonthYear(it.month) + ' · ' + thaiDay(it.date) + (it.period ? ' ' + it.period : '') + ' — ลบหนี้ ฿' + baht(it.amount) + '</span></div>';
         } else {
-          h += '<div class="owl"><span>' + thaiMonthYear(it.month) + ' · ' + thaiDay(it.date) + ' — ฿' + baht(it.amount) + '</span>'
+          h += '<div class="owl"><span>' + (it.frame ? '<b style="color:#C9821E">โครง</b> ' : '') + thaiMonthYear(it.month) + ' · ' + thaiDay(it.date) + (it.period ? ' ' + it.period : '') + ' — ฿' + baht(it.amount) + '</span>'
             + '<button class="btn ok sm" onclick="APP.settle(\'' + c.id + '\',\'' + it.month + '\',\'' + it.sessId + '\')">รับ</button></div>';
         }
       }
@@ -747,9 +804,9 @@ table.grid thead th.rainon { background: #D9E4EC; }
             monthLabel: thaiMonthYear(mk),
             date: sObj.date,
             customer: c.name,
-            session: sObj.label || thaiDay(sObj.date),
+            session: sObj.label || (sObj.period || ''),
             status: statusThai(st),
-            amount: (st === 'paid' || st === 'settled' || st === 'owe') ? custRate(c.id) : 0
+            amount: (st === 'paid' || st === 'settled' || isOwe(st)) ? custRate(c.id) : (st === 'comp' ? -custRate(c.id) : 0)
           });
         }
       }
@@ -828,23 +885,27 @@ table.grid thead th.rainon { background: #D9E4EC; }
     for (var i = 0; i < mo.sessions.length; i++) { if (mo.sessions[i].id === sessId) return mo.sessions[i]; }
     return null;
   }
+  var ROLL_OPTS = [
+    { st: 'paid', lbl: 'มา', cls: 'k-paid' },
+    { st: 'sub', lbl: 'แทน', cls: 'k-sub' },
+    { st: 'owe', lbl: 'ค้าง', cls: 'k-owe' },
+    { st: 'frame', lbl: 'โครง', cls: 'k-frame' },
+    { st: 'comp', lbl: 'ชดเชย', cls: 'k-comp' }
+  ];
   function rollRowsHtml(mo, sessId) {
     var gc = gridCustomers(mo), h = '', came = 0, owe = 0;
     for (var i = 0; i < gc.length; i++) {
       var c = gc[i], st = getCell(mo, c.id, sessId);
       if (st === 'paid') came++;
-      else if (st === 'owe') owe++;
-      var pOn = (st === 'paid') ? ' on' : '';
-      var oOn = (st === 'owe') ? ' on' : '';
+      else if (isOwe(st)) owe++;
       var extra = '';
       if (st === 'settled') extra = '<span class="pill" style="background:#dbeef4;color:#2f8fb0">จ่ายค้าง</span>';
-      else if (st === 'rain') extra = '<span class="pill">ฝน</span>';
-      h += '<div class="roll-row">'
-        + '<span class="rn-name">' + esc(c.name) + '</span>' + extra
-        + '<div class="seg">'
-        + '<button class="segbtn segp' + pOn + '" onclick="APP.rollSet(\'' + sessId + '\',\'' + c.id + '\',\'paid\')">มา</button>'
-        + '<button class="segbtn sego' + oOn + '" onclick="APP.rollSet(\'' + sessId + '\',\'' + c.id + '\',\'owe\')">ค้าง</button>'
-        + '</div></div>';
+      var btns = '';
+      for (var b = 0; b < ROLL_OPTS.length; b++) {
+        var o = ROLL_OPTS[b], on = (st === o.st) ? ' on' : '';
+        btns += '<button class="kbtn ' + o.cls + on + '" onclick="APP.rollSet(\'' + sessId + '\',\'' + c.id + '\',\'' + o.st + '\')">' + o.lbl + '</button>';
+      }
+      h += '<div class="roll-row"><div class="rn-top"><span class="rn-name">' + esc(c.name) + '</span>' + extra + '</div><div class="kwrap">' + btns + '</div></div>';
     }
     return { html: h, came: came, owe: owe, total: gc.length };
   }
@@ -852,17 +913,17 @@ table.grid thead th.rainon { background: #D9E4EC; }
     var mo = ensureMonth(currentMonth), s = sessById(mo, sessId);
     if (!s) return;
     var h = '<div class="sheet">';
-    h += '<div class="sheet-top"><b>เช็คชื่อ · ' + thaiDay(s.date) + '</b><button class="xbtn" onclick="APP.closeRoll()">✕</button></div>';
-    h += '<label class="rn" style="display:flex;gap:7px;align-items:center;margin:4px 0 10px;color:var(--ink-soft);font-size:13px"><input type="checkbox" ' + (s.rain ? 'checked' : '') + ' onchange="APP.rollRain(\'' + sessId + '\',this.checked)"> 🌧️ ฝนตก — ยกทั้งนัดให้ทุกคน</label>';
+    h += '<div class="sheet-top"><b>เช็คชื่อ · ' + thaiDay(s.date) + (s.period ? ' ' + s.period : '') + '</b><button class="xbtn" onclick="APP.closeRoll()">✕</button></div>';
+    h += '<label class="rn" style="display:flex;gap:7px;align-items:center;margin:4px 0 10px;color:var(--ink-soft);font-size:13px"><input type="checkbox" ' + (s.rain ? 'checked' : '') + ' onchange="APP.rollRain(\'' + sessId + '\',this.checked)"> 🌧️ ฝนตก — ยกทั้งรอบให้ทุกคน</label>';
     if (s.rain) {
-      h += '<div class="empty">นัดนี้เป็น “ฝน” ยกให้ทุกคนแล้ว 🌧️</div>';
+      h += '<div class="empty">รอบนี้เป็น “ฝน” ยกให้ทุกคนแล้ว 🌧️</div>';
     } else {
       var r = rollRowsHtml(mo, sessId);
       h += '<div class="rollcount">มา <b>' + r.came + '</b> · ค้าง <b class="b-owe">' + r.owe + '</b> · จากทั้งหมด ' + r.total + ' คน</div>';
       h += '<div class="btnrow" style="margin:0 0 6px"><button class="btn ok sm" onclick="APP.rollAll(\'' + sessId + '\',\'paid\')">✓ มาทั้งหมด</button><button class="btn warn sm" onclick="APP.rollAll(\'' + sessId + '\',\'owe\')">ค้างทั้งหมด</button><button class="btn sec sm" onclick="APP.rollAll(\'' + sessId + '\',\'\')">ล้าง</button></div>';
       h += '<div id="rollList">' + r.html + '</div>';
       h += '<div class="sheet-bottom"><button class="btn full" onclick="APP.closeRoll()">เสร็จ</button>';
-      h += '<div class="hint" style="text-align:center;margin-top:6px">แตะ “มา” หรือ “ค้าง” ต่อคน · แตะซ้ำที่เดิมเพื่อล้าง · หรือใช้ปุ่มด้านบนตั้งทีเดียว</div></div>';
+      h += '<div class="hint" style="text-align:center;margin-top:6px">แตะสถานะต่อคน · แตะซ้ำเพื่อล้าง · แทน=ไม่คิดเงิน · โครง=ตั้งไม่มา(ค้าง) · ชดเชย=ลบหนี้เก่า</div></div>';
     }
     h += '</div>';
     var m = document.getElementById('rollModal');
@@ -930,9 +991,34 @@ table.grid thead th.rainon { background: #D9E4EC; }
       for (var i = 0; i < mo.sessions.length; i++) { if (mo.sessions[i].id === sessId) mo.sessions[i].date = val; }
       saveDB(); renderGrid();
     },
-    setSessLabel: function (sessId, val) {
+    setSessPeriod: function (sessId, val) {
       var mo = ensureMonth(currentMonth);
-      for (var i = 0; i < mo.sessions.length; i++) { if (mo.sessions[i].id === sessId) mo.sessions[i].label = val; }
+      for (var i = 0; i < mo.sessions.length; i++) { if (mo.sessions[i].id === sessId) mo.sessions[i].period = val; }
+      sortSessions(mo); saveDB(); renderGrid();
+    },
+    addSess: function () {
+      var mo = ensureMonth(currentMonth);
+      var d = currentMonth + '-' + pad2(DEFAULT_DAYS[0]);
+      mo.sessions.push({ id: genSid(), label: '', date: d, period: 'เช้า', rain: false });
+      sortSessions(mo); saveDB(); renderGrid();
+    },
+    delSess: function (sessId) {
+      var mo = ensureMonth(currentMonth);
+      var used = 0;
+      for (var cid in mo.cells) { if (mo.cells.hasOwnProperty(cid) && mo.cells[cid][sessId]) used++; }
+      var ss = sessById(mo, sessId);
+      var nm = ss ? (thaiDay(ss.date) + (ss.period ? ' ' + ss.period : '')) : 'รอบนี้';
+      if (used > 0 && !confirm('ลบรอบ ' + nm + ' ? มีข้อมูล ' + used + ' คนในรอบนี้จะหายด้วย')) return;
+      var arr = [];
+      for (var i = 0; i < mo.sessions.length; i++) { if (mo.sessions[i].id !== sessId) arr.push(mo.sessions[i]); }
+      mo.sessions = arr;
+      for (var c2 in mo.cells) { if (mo.cells.hasOwnProperty(c2) && mo.cells[c2][sessId]) delete mo.cells[c2][sessId]; }
+      saveDB(); renderGrid();
+    },
+    resetSess: function () {
+      if (!confirm('รีเซ็ตรอบของเดือนนี้กลับเป็นค่าเริ่มต้น (เช้า+เย็น วันที่ 10,11,20-25) ?\nสถานะที่ลงไว้ในเดือนนี้จะหาย')) return;
+      delete DB.months[currentMonth];
+      ensureMonth(currentMonth);
       saveDB(); renderGrid();
     },
     setRain: function (sessId, on) {
